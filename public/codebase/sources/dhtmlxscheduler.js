@@ -2261,7 +2261,7 @@ scheduler.addEventNow=function(start,end,e){
 	base.text = base.text||this.locale.labels.new_event;
 	base.config = JSON.stringify({
 		url: "http://www.idolondemand.com",
-		max_pages: 1
+		max_pages: 10
 	}, null, 2)
 	base.destination = JSON.stringify({
 		action: "addtotextindex",
@@ -3492,7 +3492,7 @@ scheduler.locale = {
 		section_description:"Description",
 		section_time:"Time period",
 		section_connector:"Connector Name",
-		section_type:"Connector Type",
+		section_flavor:"Connector Flavor",
 		section_config: "Connector Config",
 		section_destination: "Destination",
 		full_day:"Full day",

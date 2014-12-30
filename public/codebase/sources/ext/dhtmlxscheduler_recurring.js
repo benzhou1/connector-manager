@@ -810,9 +810,9 @@ scheduler.getEvents = function(from, to) {
 scheduler.config.repeat_date = "%m.%d.%Y";
 scheduler.config.lightbox.sections = [
 	{name:"connector", height:26, map_to:"text", type:"textarea", focus:true},
-	{name:"type", height:25, map_to:"connectorType", type:"select", options: [
-		{key:'Web', label:'Web'},
-		{key:'FileSystem', label:'File_System'}
+	{name:"flavor", height:25, map_to:"flavor", type:"select", options: [
+		{key:'web_cloud', label:'Web_Cloud'},
+		{key:'filesystem_onsite', label:'FileSystem_Onsite'}
 	]},
 	{name:"config", height:130, map_to:"config", type:"textarea"},
 	{name:"destination", height:130, map_to:"destination", type:"textarea"},

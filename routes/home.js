@@ -6,6 +6,7 @@
 
 var _ = require('lodash')
 var iodU = require('../lib/iod-utils')
+var config = require('../config.json')
 var async = require('../lib/async-ext')
 var querystring = require('querystring')
 
@@ -37,42 +38,35 @@ exports.attachRoutes = function(app, deps, callback) {
 	}
 
 	/**
-	 * Renders index view. Query parameters apikey, iodhost, iodport are
-	 * required. If not specified redirect to /.
-	 * Verifies that apikey, iodhost, iodport are valid by sending a request to IOD.
+	 * Renders index view. Query parameters apikey are required. If not specified redirect to /.
+	 * Verifies that apikey are valid by sending a request to IOD.
 	 *
 	 * @param {Object} req - Req
 	 * @param {Function} callback - Callback()
 	 */
 	function renderCalender(req, callback) {
 		var apiKey = req.query.apikey
-		var host = req.query.iodhost
-		var port = req.query.iodport
 		var errorCode = 0
 
 		if (!apiKey) errorCode = 1
-		else if (!host) errorCode = 2
-		else if (!port) errorCode = 3
-
 		if (errorCode) callback(null, { redirect: '/?error=' + errorCode })
 		else {
 			try {
-				iodU.getIOD(apiKey, host, port, async.split(function(IOD) {
+				iodU.getIOD(apiKey, config.iod.host, config.iod.port, async.split(function() {
 					callback(null, {
 						view: 'schedule',
-						meta: {
-							apiKey: apiKey,
-							host: host,
-							port: port
-						}
+						meta: { apiKey: apiKey }
 					})
 				}, function(err) {
-					unknownErr = err
-					callback(null, { redirect: '/?error=5' })
+					if (_.contains(err, 'api key')) callback(null, { redirect: '/?error=3' })
+					else {
+						unknownErr = err
+						callback(null, { redirect: '/?error=4' })
+					}
 				}))
 			}
 			catch(err) {
-				callback(null, { redirect: '/?error=4' })
+				callback(null, { redirect: '/?error=2' })
 			}
 		}
 	}

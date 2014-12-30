@@ -18,10 +18,9 @@
         var errMsg = '<%= errMsg %>'
 
         if (errorCode === 1) alert('Api key is required!')
-        else if (errorCode === 2) alert('IOD host is required!')
-        else if (errorCode === 3) alert('IOD port is required and should be a number!')
-        else if (errorCode === 4) alert('Protocol is required for IOD host!')
-        else if (errorCode === 5) {
+        else if (errorCode === 2) alert('Protocol is required for IOD host!')
+        else if (errorCode === 3) alert('Invalid api key found!')
+        else if (errorCode === 4) {
             var alertMsg = 'An unknown error occurred!'
             if (errMsg) alertMsg += ' With the following error: ' +
                 JSON.stringify(errMsg, null, 2)
@@ -29,28 +28,19 @@
         }
 
         function submitOnEnter(e) {
-            if (e.keyCode == 13) {
-                document.getElementById("iod_button").click()
-            }
+            if (e.keyCode == 13) document.getElementById("iod_button").click()
             else return true
         }
 
         document.getElementById("iod_button").addEventListener('click', function(e) {
             var apiKey = document.getElementById("api_key").value
-            var iodHost = document.getElementById("iod_host").value
-            var iodPort = document.getElementById("iod_port").value
 
             if (!apiKey) alert('Api key is required!')
-            else if (!iodHost) alert('IOD host is required!')
-            else if (!iodPort) alert('IOD port is required and should be a number!')
             else {
-                window.location.assign('/connectorSchedule?apikey=' + apiKey + '&iodhost=' +
-                    iodHost + '&iodport=' + iodPort)
+                window.location.assign('/connectorSchedule?apikey=' + apiKey)
             }
         })
         document.getElementById("api_key").addEventListener('keypress', submitOnEnter)
-        document.getElementById("iod_host").addEventListener('keypress', submitOnEnter)
-        document.getElementById("iod_port").addEventListener('keypress', submitOnEnter)
     }
 </script>
 
@@ -59,18 +49,6 @@
         <div class="dhx_cal_lsection">Api Key: </div>
         <div class="dhx_cal_ltext" style="height: 25px;">
             <input id="api_key" type="text" style="width:25%">
-        </div>
-    </div>
-    <div class="dhx_wrap_section">
-        <div class="dhx_cal_lsection">IOD Host: </div>
-        <div class="dhx_cal_ltext" style="height: 25px;">
-            <input id="iod_host" type="text" style="width:25%">
-        </div>
-    </div>
-    <div class="dhx_wrap_section">
-        <div class="dhx_cal_lsection">IOD Port: </div>
-        <div class="dhx_cal_ltext" style="height: 25px;">
-            <input id="iod_port" type="number" style="width:25%">
         </div>
     </div>
     <div id="iod_button" class="dhx_btn_set dhx_left_btn_set dhx_save_btn_set">

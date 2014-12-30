@@ -39,7 +39,7 @@ startServer(app, function(err) {
 	}
 	else {
 		app.listen(nconf.get('server:port'), function() {
-			console.log('Connector Schedules listening on port: ',
+			console.log('Connector Manager listening on port: ',
 				nconf.get('server:port'))
 		})
 	}

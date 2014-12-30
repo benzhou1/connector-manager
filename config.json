@@ -1,5 +1,10 @@
 {
 	"server": {
 		"port": 3000
+	},
+
+	"iod": {
+		"host": "https://api.idolondemand.com",
+		"port": 443
 	}
 }

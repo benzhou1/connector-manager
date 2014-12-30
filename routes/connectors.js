@@ -33,21 +33,19 @@ exports.attachRoutes = function(app, deps, callback) {
 	 * @param {Function} finished - Finished(err, list of connectors)
 	 */
 	function listConnectors(IOD, req, finished) {
-		async.split(function(IOD) {
-			async.auto({
-				connectors: apply(iodU.getConnectors, IOD),
+		async.auto({
+			connectors: apply(iodU.getConnectors, IOD),
 
-				conAttr: ['connectors', function fetchAttrs(done, data) {
-					iodU.fetchConnectorAttr(IOD, data.connectors, done)
-				}]
-			}, async.doneFn(finished, T.seq([
-				T.get('conAttr'),
-				connectorsT,
-				_.flatten,
-				_.compact,
-				T.maplet('response')
-			])))
-		}, finished)
+			conAttr: ['connectors', function fetchAttrs(done, data) {
+				iodU.fetchConnectorAttr(IOD, data.connectors, done)
+			}]
+		}, async.doneFn(finished, T.seq([
+			T.get('conAttr'),
+			connectorsT,
+			_.flatten,
+			_.compact,
+			T.maplet('response')
+		])))
 	}
 
 	/**
@@ -200,12 +198,6 @@ var connectorsT = T.map(function(connector) {
 	var sched = connector.schedule
 	var freq = sched && sched.frequency
 	var duration = connector.config && connector.config.duration
-	var occurrences = sched.occurrences || -1
-	var start = moment.asDateTime(sched.start_date, freq.start_time)
-	var end = moment.asDateTime(sched.end_date, freq.end_time)
-	var intervalInMs = toMsInterval(freq.interval, freq.frequency_type)
-	var durationInMs = duration ? duration*moment.SECOND.asMilliseconds() : null
-	var prev = {}
 	var connectorSchedList = []
 
 	/**
@@ -249,6 +241,12 @@ var connectorsT = T.map(function(connector) {
 	// No schedule set start_date and end_date to now
 	if (!sched) return [new ConSched(connector).value(connector.name)]
 
+	var occurrences = sched.occurrences || -1
+	var start = moment.asDateTime(sched.start_date, freq.start_time)
+	var end = moment.asDateTime(sched.end_date, freq.end_time)
+	var intervalInMs = toMsInterval(freq.interval, freq.frequency_type)
+	var prev = {}
+
 	if (occurrences > 0) {
 		for (var i=0; i < occurrences; i++) {
 			var conSched = new ConSched(connector)
@@ -263,7 +261,7 @@ var connectorsT = T.map(function(connector) {
 				setEndDate(conSched)
 			}
 			else {
-				var futureInterval = prevStart.add('ms', intervalInMs)
+				var futureInterval = prevStart.add(intervalInMs, 'ms')
 
 				// Next interval run time is before duration run time
 				if (futureInterval.isBefore(prevEnd)) {

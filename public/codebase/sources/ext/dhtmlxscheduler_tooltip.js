@@ -225,7 +225,7 @@ scheduler.templates.tooltip_text = function(start, end, event) {
 	else if (name.indexOf(' - every') >= 0) name = name.split(' - every')[0]
 
 	var html = "<b>Connector:</b> " + name + "<br/>" +
-		"<b>Type:</b> " + (event.type || event.connectorType) + "<br/>"
+		"<b>Flavor:</b> " + event.flavor + "<br/>"
 
 	if (event.config) html += "<b>Config: </b><pre>" + event.config + "</pre><br/>"
 	if (event.destination) html += "<b>Destination: </b><pre>" + event.destination + "</pre><br/>"

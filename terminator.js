@@ -4,6 +4,7 @@
 
 'use strict';
 
+var _ = require('lodash')
 var Err = require('./lib/err').Err
 
 /**
@@ -35,6 +36,23 @@ function route(app, terminatingCB) {
 }
 
 /**
+ * Log an error to console.
+ * If err is a custom error first print it.
+ * Otherwise log err as is, stringify if object.
+ *
+ * @param {*} err - Error to log
+ * @param {String} str - Prepended string
+ */
+function logError(err, str) {
+	var error = ''
+
+	if (!(err instanceof Err)) error = err.print()
+	else error = _.isObject(err) ? JSON.stringify(err, null, 2) : err
+
+	console.error(str, error)
+}
+
+/**
  * Terminate a route request by rendering a view.
  *
  * On error log.
@@ -47,8 +65,8 @@ function terminateWithView(fn) {
 	return function(req, res) {
 		fn(req, function(err, results) {
 			if (err) {
-				console.error(err)
-				res.render('Unknown error occurred!')
+				logError(err, 'Termination with view failed:')
+				res.render('400')
 			}
 			else {
 				if (results.redirect) res.redirect(results.redirect)
@@ -70,10 +88,7 @@ function terminateWithView(fn) {
 function terminateWithData(fn) {
 	return function(req, res) {
 		fn(req, function(err, results) {
-			if (err) {
-				if (!(err instanceof Err)) console.error(err.toString())
-				else console.error(err)
-			}
+			if (err) logError(err, 'Termination with data failed:')
 			else if (results && results.contentType) {
 				res.set('Content-Type', results.contentType)
 
@@ -84,7 +99,7 @@ function terminateWithData(fn) {
 
 			res.status(err ? 400 : 200)
 				.send(err ?
-					((err instanceof Err) ? err.print() : 'Unknown error occurred!') :
+					((err instanceof Err) ? err.print() : 'Unexpected error occurred!') :
 					results.response
 				)
 		})
