@@ -5,7 +5,6 @@
 'use strict';
 
 var _ = require('lodash')
-var uuid = require('uuid')
 var U = require('../lib/utils')
 var T = require('../lib/transform')
 var iodU = require('../lib/iod-utils')
@@ -18,6 +17,9 @@ var ErrCode = require('../lib/err').CODE
 
 var async = require('../lib/async-ext')
 var apply = async.apply
+
+// Cache to store connector names
+var CC = {}
 
 exports.attachRoutes = function(app, deps, callback) {
 	app.routeWithData('get', '/connectors', U.wrapWithIOD(listConnectors))
@@ -75,10 +77,9 @@ exports.attachRoutes = function(app, deps, callback) {
 		/**
 		 * Prepares a schedule object for connector creation.
 		 *
-		 * @param {Object} data - Data from calendar event
 		 * @returns {Object} Connector schedule object
 		 */
-		var prepareSched = function(data) {
+		var prepareSched = function() {
 			if (!data.rec_type) return
 
 			var sched = recU.toSched(data.rec_type)
@@ -103,7 +104,7 @@ exports.attachRoutes = function(app, deps, callback) {
 		 *
 		 * @param {*} err - Error
 		 */
-		var updateResponse = function(err){
+		var connectorCb = function(err){
 			var error = null
 
 			if (err) {
@@ -124,53 +125,66 @@ exports.attachRoutes = function(app, deps, callback) {
 			})
 		}
 
-		/**
-		 * Creates a connector.
-		 */
-		var createConnector = function() {
-			if (!data.text) updateResponse(new Err(ErrCode.NO_CON_NAME))
-			else if (!data.config) updateResponse(new Err(ErrCode.NO_CON_CFG))
-			else if (!data.destination) updateResponse(new Err(ErrCode.NO_CON_DEST))
+		var validateParams = function(callback) {
+			if (!data.text) callback(new Err(ErrCode.NO_CON_NAME))
+			else if (!data.config) callback(new Err(ErrCode.NO_CON_CFG))
+			else if (!data.destination) callback(new Err(ErrCode.NO_CON_DEST))
 			else {
 				try { var config = JSON.parse(data.config) }
 				catch(e) {
-					updateResponse(new Err(ErrCode.FAIL_PARSE,
+					callback(new Err(ErrCode.FAIL_PARSE,
 						{ error: 'Failed to parse config: ' + e }))
 				}
 				try { var destination = JSON.parse(data.destination) }
 				catch(e) {
-					updateResponse(new Err(ErrCode.FAIL_PARSE,
+					callback(new Err(ErrCode.FAIL_PARSE,
 						{ error: 'Failed to parse destination: ' + e }))
 				}
+				callback(null, { config: config, destination: destination })
+			}
+		}
 
+		/**
+		 * Creates a connector.
+		 */
+		var createConnector = function() {
+			validateParams(async.split(function(params) {
 				iodU.createConnector(IOD, {
 					connector: data.text,
 					flavor: data.flavor,
-					config: config,
-					destination: destination,
-					schedule: prepareSched(data),
+					config: params.config,
+					destination: params.destination,
+					schedule: prepareSched(),
 					description: data.description
-				}, updateResponse)
-			}
+				}, connectorCb)
+			}, connectorCb))
 		}
 
 		/**
 		 * Deletes a connector.
 		 */
 		var deleteConnector = function() {
-			var name = data.text
-
-			if (_.contains(name, ' - forever')) name = name.split(' - forever')[0]
-			else if (_.contains(name, ' - occurrence')) name = name.split(' - occurrence')[0]
-			else if (_.contains(name, ' - every')) name = name.split(' - every')[0]
-
-			iodU.deleteConnector(IOD, name, updateResponse)
+			var name = U.getActualName(data.text)
+			iodU.deleteConnector(IOD, name, connectorCb)
 		}
 
-//		if (mode == "updated") db.sched.updateById( sid, data, update_response)
-		if (mode == "inserted") createConnector()
-		else if (mode == "deleted") deleteConnector()
-//		callback(null, { response: 'Not supported operation' })
+		var updateConnector = function() {
+			validateParams(async.split(function(params) {
+				var name = U.getActualName(data.text)
+				iodU.updateConnector(IOD, {
+					connector: name,
+					config: params.config,
+					destination: params.destination,
+					schedule: prepareSched(),
+					description: data.description
+				}, updateResponse)
+			}, connectorCb))
+		}
+
+		if (mode == 'inserted') createConnector()
+		else if (mode == 'deleted') deleteConnector()
+		else if (mode == 'updated') updateConnector()
+		else updateResponse('Not supported operation found: ' + mode)
 	}
 
 	callback()
@@ -200,18 +214,10 @@ var connectorsT = T.map(function(connector) {
 	var duration = connector.config && connector.config.duration
 	var connectorSchedList = []
 
-	/**
-	 * Set the `end_date` property for specified `conSched`.
-	 * End date should be start_date + duration if duration exists or
-	 * End date should just be start_date if duration does not exists.
-	 *
-	 * @param {Object} conSched - Connector schedule object
-	 */
-	var setEndDate = function(conSched) {
-		if (duration) {
-			conSched.end_date = new Date(conSched.start_date.getTime() + duration)
-		}
-		else conSched.end_date = conSched.start_date
+	var addToSchedList = function(sched, shouldReturn) {
+		CC[sched.id] = sched.name
+		connectorSchedList.push(sched)
+		if (shouldReturn) return connectorSchedList
 	}
 
 	/**
@@ -236,15 +242,16 @@ var connectorsT = T.map(function(connector) {
 	}
 
 	// On site connector
-	if (!connector.config) return [new ConSched(connector).value(connector.name)]
+	if (!connector.config) addToSchedList(new ConSched(connector), true)
 
 	// No schedule set start_date and end_date to now
-	if (!sched) return [new ConSched(connector).value(connector.name)]
+	if (!sched) addToSchedList(new ConSched(connector), true)
 
 	var occurrences = sched.occurrences || -1
 	var start = moment.asDateTime(sched.start_date, freq.start_time)
 	var end = moment.asDateTime(sched.end_date, freq.end_time)
 	var intervalInMs = toMsInterval(freq.interval, freq.frequency_type)
+	var durationInMs = duration ? duration*moment.SECOND.asMilliseconds() : null
 	var prev = {}
 
 	if (occurrences > 0) {
@@ -258,7 +265,7 @@ var connectorsT = T.map(function(connector) {
 			// If first occurrences, start at startDate or start now
 			if (!prevStart) {
 				conSched.start_date = start ? start.toDate() : new Date()
-				setEndDate(conSched)
+				conSched.setEndDate(durationInMs)
 			}
 			else {
 				var futureInterval = prevStart.add(intervalInMs, 'ms')
@@ -273,10 +280,10 @@ var connectorsT = T.map(function(connector) {
 				else if (end && futureInterval.isAfter(end)) break
 				else conSched.start_date = futureInterval.toDate()
 
-				setEndDate(conSched)
+				conSched.setEndDate(durationInMs)
 			}
 
-			connectorSchedList.push(conSched.value())
+			addToSchedList(conSched.value())
 			prev = conSched.clone()
 		}
 	}
@@ -287,7 +294,7 @@ var connectorsT = T.map(function(connector) {
 		conSched.end_date = end ? end.toDate() : new Date(9999, 1, 1)
 
 		// No occurrences means either run forever or run until endDate
-		connectorSchedList.push(conSched.value())
+		addToSchedList(conSched.value())
 	}
 
 	return connectorSchedList

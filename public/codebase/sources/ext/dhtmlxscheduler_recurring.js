@@ -848,7 +848,7 @@ scheduler.__recurring_template='<div class="dhx_form_repeat"> <form> <div class=
 	'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="year" />Yearly</label> ' +
 '</div> <div class="dhx_repeat_divider"></div> <div class="dhx_repeat_center"> ' +
 	'<div id="dhx_repeat_seconds"> ' +
-		'Interval<input class="dhx_repeat_text" type="text" name="interval" value="30" /><br />' +
+		'Interval<input class="dhx_repeat_text" type="text" name="interval" value="21600" /><br />' +
 		'Occurrences<input class="dhx_repeat_text" type="number" name="occurrences" value=""/>' +
 	'</div>' +
 	'<div style="display:none;" id="dhx_repeat_day"> ' +
