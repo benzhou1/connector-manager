@@ -1600,16 +1600,12 @@ dataProcessor.prototype={
 	            this.obj[this._methods[2]](sid, tid);
 	            sid = tid;
 	        }
-			scheduler.clearAll()
-			scheduler.load(this.serverProcessor)
 	        break;
 	    case "delete":
 	    case "deleted":
 	    	this.obj.setUserData(sid, this.action_param, "true_deleted");
 	        this.obj[this._methods[3]](sid);
 	        delete this._in_progress[marker];
-			scheduler.clearAll()
-			scheduler.load(this.serverProcessor)
 	        return this.callEvent("onAfterUpdate", [sid, action, tid, btag]);
 	    }
 	    

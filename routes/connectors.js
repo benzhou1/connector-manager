@@ -10,7 +10,7 @@ var T = require('../lib/transform')
 var iodU = require('../lib/iod-utils')
 var recU = require('../lib/rec-utils')
 var moment = require('../lib/moment-ext')
-var ConSched = require('../lib/con-sched')
+var ConEvent = require('../lib/con-event')
 
 var Err = require('../lib/err').Err
 var ErrCode = require('../lib/err').CODE
@@ -18,8 +18,8 @@ var ErrCode = require('../lib/err').CODE
 var async = require('../lib/async-ext')
 var apply = async.apply
 
-// Cache to store connector names
-var CC = {}
+// Cache to store event id with connector name
+var CEC = {}
 
 exports.attachRoutes = function(app, deps, callback) {
 	app.routeWithData('get', '/connectors', U.wrapWithIOD(listConnectors))
@@ -168,23 +168,39 @@ exports.attachRoutes = function(app, deps, callback) {
 			iodU.deleteConnector(IOD, name, connectorCb)
 		}
 
+		/**
+		 * Updates a connector.
+		 */
 		var updateConnector = function() {
 			validateParams(async.split(function(params) {
 				var name = U.getActualName(data.text)
-				iodU.updateConnector(IOD, {
-					connector: name,
-					config: params.config,
-					destination: params.destination,
-					schedule: prepareSched(),
-					description: data.description
-				}, updateResponse)
+				var attrs = CEC[name]
+				var options = { connector: name }
+
+				if (!attrs) {
+					console.error('Connector attributes for: ' + name + ' was not found')
+					return connectorCb('Unexpected error occurred!')
+				}
+
+				var sched = prepareSched()
+				if (!_.isEqual(sched, attrs.schedule)) options.schedule = sched
+				if (!_.isEqual(params.config, attrs.config)) options.config = params.config
+				if (!_.isEqual(params.destination, attrs.destination)) options.destination = params.destination
+				if (data.description !== attrs.description) options.description = data.description
+
+				// No changes to connector found
+				if (_.size(_.pick(options, ['config', 'destination', 'schedule', 'description'])) === 0) {
+					return connectorCb()
+				}
+
+				iodU.updateConnector(IOD, options, connectorCb)
 			}, connectorCb))
 		}
 
 		if (mode == 'inserted') createConnector()
 		else if (mode == 'deleted') deleteConnector()
 		else if (mode == 'updated') updateConnector()
-		else updateResponse('Not supported operation found: ' + mode)
+		else connectorCb('Not supported operation found: ' + mode)
 	}
 
 	callback()
@@ -212,40 +228,28 @@ var connectorsT = T.map(function(connector) {
 	var sched = connector.schedule
 	var freq = sched && sched.frequency
 	var duration = connector.config && connector.config.duration
-	var connectorSchedList = []
-
-	var addToSchedList = function(sched, shouldReturn) {
-		CC[sched.id] = sched.name
-		connectorSchedList.push(sched)
-		if (shouldReturn) return connectorSchedList
-	}
+	var conEventList = []
 
 	/**
-	 * Transform connector name according to:
+	 * Add connector schedule event to list.
+	 * Save connector event in connector event cache.
 	 *
-	 * Add statement indicating that it runs forever.
-	 * Add humanized interval string.
-	 * Add humanized duration string.
-	 *
-	 * @returns {String} - Forever humanized string
+	 * @param {Object} conEvent - Connector event
+	 * @param {Boolean} [shouldReturn] - Optional, set to true to return conEventList
+	 * @returns {Array} - conEventList
 	 */
-	var transformConnectorName = function() {
-		var intDuration = moment.duration(intervalInMs, 'ms')
-		var durDuration = duration ? moment.duration(durationInMs, 'ms') : null
-		var statement = connector.name
-
-		if (end) statement += ' - every ' + moment.humanizeToTheMax(intDuration)
-		else statement += ' - forever every ' + moment.humanizeToTheMax(intDuration)
-		if (durDuration) statement += ' for ' + moment.humanizeToTheMax(durDuration)
-
-		return statement
+	var addToConEventList = function(conEvent, shouldReturn) {
+		var name = U.getActualName(conEvent.text)
+		if (!CEC[name]) CEC[name] = conEvent
+		conEventList.push(conEvent)
+		if (shouldReturn) return conEventList
 	}
 
 	// On site connector
-	if (!connector.config) addToSchedList(new ConSched(connector), true)
+	if (!connector.config) return addToConEventList(new ConEvent(connector).value(), true)
 
 	// No schedule set start_date and end_date to now
-	if (!sched) addToSchedList(new ConSched(connector), true)
+	if (!sched) return addToConEventList(new ConEvent(connector).value(), true)
 
 	var occurrences = sched.occurrences || -1
 	var start = moment.asDateTime(sched.start_date, freq.start_time)
@@ -256,16 +260,16 @@ var connectorsT = T.map(function(connector) {
 
 	if (occurrences > 0) {
 		for (var i=0; i < occurrences; i++) {
-			var conSched = new ConSched(connector)
-			conSched.name = connector.name + ' - occurrence: ' + (i+1)
+			var conEvent = new ConEvent(connector)
+			conEvent.name = connector.name + ' - occurrence: ' + (i+1)
 
 			var prevStart = prev.start_date ? moment(prev.start_date) : null
 			var prevEnd = prev.end_date ? moment(prev.end_date) : null
 
 			// If first occurrences, start at startDate or start now
 			if (!prevStart) {
-				conSched.start_date = start ? start.toDate() : new Date()
-				conSched.setEndDate(durationInMs)
+				conEvent.start_date = start ? start.toDate() : new Date()
+				conEvent.setEndDate(durationInMs)
 			}
 			else {
 				var futureInterval = prevStart.add(intervalInMs, 'ms')
@@ -278,24 +282,24 @@ var connectorsT = T.map(function(connector) {
 				}
 				// Next interval past the schedule end date
 				else if (end && futureInterval.isAfter(end)) break
-				else conSched.start_date = futureInterval.toDate()
+				else conEvent.start_date = futureInterval.toDate()
 
-				conSched.setEndDate(durationInMs)
+				conEvent.setEndDate(durationInMs)
 			}
 
-			addToSchedList(conSched.value())
-			prev = conSched.clone()
+			prev = conEvent.clone()
+			addToConEventList(conEvent.value())
 		}
 	}
 	else {
-		var conSched = new ConSched(connector)
-		conSched.name = transformConnectorName()
-		conSched.start_date = start ? start.toDate() : new Date()
-		conSched.end_date = end ? end.toDate() : new Date(9999, 1, 1)
+		var conEvent = new ConEvent(connector)
+		conEvent.transformName(intervalInMs, durationInMs, end)
+		conEvent.start_date = start ? start.toDate() : new Date()
+		conEvent.end_date = end ? end.toDate() : new Date(9999, 1, 1)
 
 		// No occurrences means either run forever or run until endDate
-		addToSchedList(conSched.value())
+		addToConEventList(conEvent.value())
 	}
 
-	return connectorSchedList
+	return conEventList
 })
