@@ -576,8 +576,9 @@ div.icon_delete {
   right: 0;
   margin-top: 2px;
 }
+/* [CHANGE] - Decreased margin for repeat_right section */
 .dhx_cal_light_wide .dhx_repeat_right {
-  margin-right: 25px;
+  margin-right: 15px;
 }
 .dhx_minical_popup {
   position: absolute;
@@ -736,6 +737,15 @@ div.icon_delete {
   top: 1px;
   cursor: pointer;
   background-image: url(imgs/calendar.gif);
+}
+/* [CHANGE] - Use calender image for minical */
+div.dhx_minical_icon {
+    width: 18px;
+    height: 18px;
+    left: 190px;
+    top: 1px;
+    cursor: pointer;
+    background-image: url(imgs/calendar.gif);
 }
 .dhx_matrix_scell {
   height: 100%;
@@ -1495,10 +1505,11 @@ div.icon_delete {
   /*background-color: #DCC43E;*/
   width: 1px;
 }
+/* [CHANGE] - Increased width for repeat_right section */
 .dhx_repeat_right {
   float: right;
   height: 115px;
-  width: 180px;
+  width: 190px;
   padding: 10px 3px 10px 10px;
   margin-top: 7px;
 }

@@ -6,7 +6,6 @@
 
 var _ = require('lodash')
 var iodU = require('../lib/iod-utils')
-var config = require('../config.json')
 var async = require('../lib/async-ext')
 var querystring = require('querystring')
 
@@ -52,7 +51,7 @@ exports.attachRoutes = function(app, deps, callback) {
 		if (errorCode) callback(null, { redirect: '/?error=' + errorCode })
 		else {
 			try {
-				iodU.getIOD(apiKey, config.iod.host, config.iod.port, async.split(function() {
+				iodU.getIOD(apiKey, async.split(function() {
 					callback(null, {
 						view: 'schedule',
 						meta: { apiKey: apiKey }

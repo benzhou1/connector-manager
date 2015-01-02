@@ -79,7 +79,8 @@ scheduler.form_blocks["recurring"] = {
 				dates.end = new Date(9999, 1, 1);
 				repeat = "no";
 			}
-			else if (els["end"][2].checked) {
+			// [CHANGE] - Removed occurrences so only array length of 2
+			else if (els["end"][1].checked) {
 				dates.end = str_date(els["date_of_end"].value);
 			}
 			else {
@@ -96,6 +97,10 @@ scheduler.form_blocks["recurring"] = {
 		var get_rcode = {
 			// [CHANGE] - Added get_rcode for seconds
 			seconds:function(code, dates) {
+				var occurrences = els['occurrences'].value
+				if (occurrences == 0 || occurrences < 0) occurrences = -1
+
+				code.push(occurrences)
 				code.push(els['interval'].value)
 			},
 			month:function(code, dates) {
@@ -177,7 +182,8 @@ scheduler.form_blocks["recurring"] = {
 		var set_rcode = {
 			// [CHANGE] - Added set_rcode for seconds
 			seconds:function(code, dates) {
-				els['interval'].value = code[0]
+				els['occurrences'].value = code[0]
+				els['interval'].value = code[1]
 			},
 			week:function(code, dates) {
 				els["week_count"].value = code[1];
@@ -258,22 +264,6 @@ scheduler.form_blocks["recurring"] = {
 			}
 		}
 
-		els['date_of_end'].onclick = function() {
-			var select = document.getElementsByClassName('dhx_section_time')[0].childNodes[0]
-			var options = []
-			for(var i=0; i < select.length; i++) options.push(select[i])
-
-			scheduler.renderCalendar({
-				date: new Date(),
-				position: 'date_of_end_cal',
-				navigation: true,
-				handler: function(a) {
-					els["date_of_end"].value = date_str(a)
-				}
-			});
-		};
-		console.log('TOP: ', top)
-		console.log('ELS: ', els)
 		scheduler._lightbox._rec_init_done = true;
 	},
 	set_value:function(node, value, ev) {
@@ -323,7 +313,7 @@ scheduler.form_blocks["recurring"] = {
 			cont.style.height = "130px";
 			el.style.backgroundPosition = "-5px 0px";
 			el.nextSibling.innerHTML = scheduler.locale.labels.button_recurring_open;
-			// [CHANGE - Display time if recurring button is clicked
+			// [CHANGE] - Display time if recurring button is clicked
 			document.getElementsByClassName('dhx_section_time')[0].style.display = 'block'
 		} else {
 			cont.style.height = "0px";
@@ -852,6 +842,26 @@ scheduler.attachEvent("onClearAll", function(){
 	scheduler._rec_temp = [];
 });
 
+// [CHANGE] - Popup mini cal
+function show_minical(){
+	var date_str = scheduler.date.date_to_str(scheduler.config.repeat_date);
+
+	if (scheduler.isCalendarVisible()){
+		scheduler.destroyCalendar();
+	} else {
+		scheduler.renderCalendar({
+			position:"dhx_minical_icon",
+			date:scheduler._date,
+			navigation:true,
+			handler:function(date,calendar){
+				var dateOfEnd = document.getElementsByName('date_of_end')[0]
+				dateOfEnd.value = date_str(date)
+				scheduler.destroyCalendar()
+			}
+		});
+	}
+}
+
 // [CHANGE] - Added seconds to recurring_template
 scheduler.__recurring_template='<div class="dhx_form_repeat"> ' +
 	'<form> ' +
@@ -866,6 +876,7 @@ scheduler.__recurring_template='<div class="dhx_form_repeat"> ' +
 
 		'<div id="dhx_repeat_seconds"> ' +
 			'Interval<input class="dhx_repeat_text" type="text" name="interval" value="21600" /><br />' +
+			'Occurrences<input class="dhx_repeat_text" type="number" name="occurrences" value=""/>' +
 		'</div>' +
 
 		'<div style="display:none;" id="dhx_repeat_day"> ' +
@@ -969,11 +980,9 @@ scheduler.__recurring_template='<div class="dhx_form_repeat"> ' +
 
 	'<div class="dhx_repeat_right"> ' +
 		'<label><input class="dhx_repeat_radio" type="radio" name="end" checked/>No end date</label><br /> ' +
-		'<label><input class="dhx_repeat_radio" type="radio" name="end" />End by</label>' +
-		'<input class="dhx_repeat_date" type="text" name="date_of_end" value="'+scheduler.config.repeat_date_of_end+'" /><br /> ' +
-		'<input id="date_of_end_cal" type="button" name="date_of_end_cal" value="Cal"/>' +
-
-		'<input type="hidden" name="end" value="occurences_count" />' +
+		'<label><input class="dhx_repeat_radio" type="radio" name="end" />After</label>' +
+		'<input id="date_of_end" class="dhx_repeat_date" type="text" name="date_of_end" value="'+scheduler.config.repeat_date_of_end+'" />' +
+		'<div class="dhx_minical_icon" id="dhx_minical_icon" onclick="show_minical()" style="float:right;">&nbsp;</div>' +
 	'</div> ' +
 
 '</form> </div> <div style="clear:both"> </div>';

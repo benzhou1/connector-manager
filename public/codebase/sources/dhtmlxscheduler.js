@@ -2255,14 +2255,19 @@ scheduler.addEventNow=function(start,end,e){
 	base.start_date = base.start_date||start_date;
 	base.end_date =  base.end_date||end_date;
 	base.text = base.text||this.locale.labels.new_event;
+
+	// [CHANGE] - Initialize default config
 	base.config = JSON.stringify({
 		url: "http://www.idolondemand.com",
 		max_pages: 10
 	}, null, 2)
+
+	// [CHANGE] - Initialize default destination
 	base.destination = JSON.stringify({
 		action: "addtotextindex",
 		index: "test1"
 	}, null, 2)
+
 	base.id = this._drag_id = this.uid();
 	this._drag_mode="new-size";
 
@@ -2664,7 +2669,7 @@ scheduler._on_mouse_up=function(e){
 		if (this._drag_event._dhx_changed || !this._drag_event.start_date || ev.start_date.valueOf()!=this._drag_event.start_date.valueOf() || ev.end_date.valueOf()!=this._drag_event.end_date.valueOf()){
 			var is_new=(this._drag_mode=="new-size");
 			if (!this.callEvent("onBeforeEventChanged",[ev, e, is_new, this._drag_event])){
-				if (is_new) 
+				if (is_new)
 					this.deleteEvent(ev.id, true);
 				else {
 					this._drag_event._dhx_changed = false;
@@ -3486,6 +3491,7 @@ scheduler.locale = {
 		confirm_closing:"",//Your changes will be lost, are your sure ?
 		confirm_deleting:"Event will be deleted permanently, are you sure?",
 		section_description:"Description",
+		// [CHANGE] - Modify section names
 		section_time:"Start Date",
 		section_connector:"Connector Name",
 		section_flavor:"Connector Flavor",
@@ -5109,6 +5115,49 @@ scheduler._lightbox_controls.get_time_control = function(result) {
 	result.control = result.node.getElementsByTagName('select'); // array
 	return result;
 };
+
+// [CHANGE] - Init recurring form values
+function initRecForm(ev) {
+	var date_str = scheduler.date.date_to_str(scheduler.config.repeat_date);
+	try { var sched = JSON.parse(ev.schedule) }
+	catch (e) { return }
+
+	var inputs = document.getElementsByClassName('dhx_form_repeat')[0].children[0]
+		.getElementsByTagName('input')
+
+	var firstRadio = true
+	for (var i=0; i < inputs.length; i++) {
+		var name = inputs[i].name
+
+		if (name === 'interval') inputs[i].value = sched.frequency.interval
+		if (name === 'occurrences') inputs[i].value = sched.occurrences || ''
+		if (name === 'date_of_end' && (sched.end_date || sched.frequency.end_time)) {
+			var endDateMom = sched.end_date ? moment(sched.end_date, [
+				'MM-DD-YYYY', 'YYYY-MM-DD',
+				'MM-DD-YYYY Z', 'YYYY-MM-DD Z',
+				'MM-DD-YYYY ZZ', 'YYYY-MM-DD ZZ'
+			], true) : null
+			var endTimeMom = sched.frequency.end_time ? moment(sched.frequency.end_time, [
+				'HH:mm:ss Z', 'HH:mm:ss ZZ', 'HH:mm:ss'], true) : null
+			var endMom = endDateMom || endTimeMom
+
+			if (endDateMom && endTimeMom) {
+				endMom = moment(endDateMom.format('DD/MM/YYYY') + ' ' +
+					endTimeMom.format('HH:mm:ss Z'), 'DD/MM/YYYY HH:mm:ss Z', true)
+			}
+			inputs[i].value = date_str(endMom.toDate())
+		}
+		if (name === 'end') {
+			if ((sched.end_date || sched.frequency.end_time)) {
+				inputs[i].checked = firstRadio ? false : true
+			}
+			else if (firstRadio) inputs[i].checked = true
+			firstRadio = false
+
+		}
+	}
+}
+
 scheduler.form_blocks={
 	template:{
 			render: function(sns){
@@ -5184,6 +5233,7 @@ scheduler.form_blocks={
 				dt.setHours(cfg.first_hour);
 			}
 			var html = "";
+			// [CHANGE] - Hide end time period
 			var htmlHidden = "";
 
 			for (var p = 0; p < time_format.length; p++) {
@@ -5260,6 +5310,15 @@ scheduler.form_blocks={
 			return "<div style='height:30px;padding-top:0px;font-size:inherit;display:none;' class='dhx_section_time'>"+html+htmlHidden+"</div>";
 		},
 		set_value:function(node,value,ev,config){
+			// [CHANGE] - Set event to first occurrence of event
+			if (ev.id.indexOf && ev.id.indexOf(" - occurrence") >= 0) {
+				var id = ev.id.split(" - occurrence")[0];
+				id += " - occurrence: 1";
+				ev = scheduler.getEvent(id);
+			}
+			// [CHANGE] - Init recurring form inputs
+			initRecForm(ev)
+
 			var cfg = scheduler.config;
 			var s=node.getElementsByTagName("select");
 			var map = config._time_format_order;

@@ -5,6 +5,7 @@
     <script src="/codebase/sources/ext/dhtmlxscheduler_recurring.js" type="text/javascript" charset="utf-8"></script>
     <script src="codebase/sources/ext/dhtmlxscheduler_tooltip.js"></script>
     <script src="codebase/sources/ext/dhtmlxscheduler_minical.js"></script>
+    <script src="lib/moment.js"></script>
     <link rel="stylesheet" href="/codebase/sources/skins/dhtmlxscheduler.css" type="text/css" media="screen" title="no title" charset="utf-8">
     <style type="text/css" media="screen">
         html, body{
@@ -53,7 +54,7 @@
     function init() {
         // Set schedule config
         scheduler.config.show_loading = true;
-        scheduler.config.xml_date="%d/%m%/%Y %H:%i:%s";
+        scheduler.config.xml_date="%d/%m/%Y %H:%i:%s";
         scheduler.config.collision_limit = 10;
         scheduler.config.lightbox_recurring = "instance";
         scheduler.config.event_duration = 5;
@@ -110,6 +111,13 @@
                     value = (select.options[0]||{}).value;
                 select.value=value||"";
             })
+        }
+        // Confirm when canceling
+        scheduler.cancel_lightbox_origin = scheduler.cancel_lightbox;
+        scheduler.cancel_lightbox = function(){
+            dhtmlx.confirm("Your changes will be lost, are your sure?", function(result){
+                if (result) scheduler.cancel_lightbox_origin();
+            });
         }
 
         scheduler.templates.xml_date = function(value){ return new Date(value); };

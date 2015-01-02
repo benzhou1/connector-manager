@@ -18,9 +18,6 @@ var ErrCode = require('../lib/err').CODE
 var async = require('../lib/async-ext')
 var apply = async.apply
 
-// Cache to store connector name with connector attributes
-var CEC = {}
-
 exports.attachRoutes = function(app, deps, callback) {
 	app.routeWithData('get', '/connectors', U.wrapWithIOD(listConnectors))
 	app.routeWithData('post', '/connectors', U.wrapWithIOD(modifyConnector))
@@ -75,42 +72,22 @@ exports.attachRoutes = function(app, deps, callback) {
 		delete data["!nativeeditor_status"]
 
 		/**
-		 * Prepares a schedule object for connector creation.
-		 *
-		 * @returns {Object} Connector schedule object
+		 * Prepares a schedule object for connector creation/update.
 		 */
-		var prepareSched = function(oldSched) {
-			var startMom = data.start_date ? moment(data.start_date, 'DD/MM/YYYY HH:mm:ss', true) : null
-			var endMom = data.rec_type ?
-				startMom ?
-					moment(startMom).add(parseInt(data.event_length), 's') : null
-				: null
-			var sched = {}
+		var prepareSched = function() {
+			if (!data.rec_type) return
 
-			if (oldSched) {
-				sched = oldSched
-				if (!data.rec_type) {
-					var endDurMom = moment(data.end_date, 'DD/MM/YYYY HH:mm:ss', true)
-					sched.duration = moment.duration(endDurMom.diff(startMom), 'ms').asSeconds()
-				}
-			}
-			else sched = recU.toSched(data.rec_type)
+			var sched = recU.toSched(data.rec_type)
+			var startMom = moment(data.start_date, moment.dateTimeFormat, true)
+			var endMom = moment(data.end_date, moment.dateTimeFormat, true)
 
-			if (startMom) {
-				sched.start_date = startMom.format(moment.dateFormat)
-				sched.frequency.start_time = startMom.format(moment.timeFormat)
-			}
-
-			// If end date was changed
-			if (endMom && data.event_length && data.event_length != '300') {
+			if (!endMom.isSame(moment.forever)) {
 				sched.end_date = endMom.format(moment.dateFormat)
 				sched.frequency.end_time = endMom.format(moment.timeFormat)
 			}
-			else if (!data.event_length) {
-				delete sched.end_date
-				delete sched.frequency.end_time
-			}
 
+			sched.start_date = startMom.format(moment.dateFormat)
+			sched.frequency.start_time = startMom.format(moment.timeFormat)
 			return sched
 		}
 
@@ -188,40 +165,46 @@ exports.attachRoutes = function(app, deps, callback) {
 		 */
 		var updateConnector = function() {
 			validateParams(async.split(function(params) {
-				var name = U.getActualName(data.text)
-				var attrs = CEC[name]
-				if (!attrs) {
-					console.error('Connector attributes for id: ' + data.id + ' was not found')
-					return connectorCb('Unexpected error occurred!')
-				}
+				var options = { connector: U.getActualName(data.text) }
 
-				var options = { connector: name }
-				var sched = prepareSched(JSON.parse(attrs.schedule))
-				if (!_.isEqual(JSON.stringify(params.config, null, 2), attrs.config)) {
-					options.config = params.config
-				}
-				if (!_.isEqual(JSON.stringify(params.destination, null, 2), attrs.destination)) {
-					options.destination = params.destination
-				}
-				if (data.description !== attrs.description) options.description = data.description
-				if (!_.isEqual(JSON.stringify(sched, null, 2), attrs.schedule)) {
-					options.schedule = sched
+				if (params.config) options.config = params.config
+				if (params.destination) options.config = params.config
+				if (params.description) options.description = params.description
 
-					if (options.schedule.duration) {
+				// Drag and drop
+				if (!data.rec_type) {
+					iodU.fetchConnectorAttr(IOD, options.connector, async.split(function(attr) {
+						var sched = attr.schedule
+						var startMom = moment(data.start_date, moment.dateTimeFormat, true)
+						var endDurMom = moment(data.end_date, moment.dateTimeFormat, true)
+
 						options.config = options.config || {}
-						options.config.duration = options.schedule.duration
-						delete options.schedule.duration
-					}
+						// Duration is time period between start and end
+						options.config.duration = moment.duration(endDurMom.diff(startMom), 'ms')
+							.asSeconds()
+						sched.start_date = startMom.format(moment.dateFormat)
+						sched.frequency.start_time = startMom.format(moment.timeFormat)
+
+						if (sched.end_date) {
+							var endMom = moment.asDateTime(sched.end_date, sched.frequency.end_time)
+							// If start is after end remove end date
+							if (startMom.isAfter(endMom)) {
+								delete sched.end_date
+								delete sched.frequency.end_time
+							}
+						}
+						options.schedule = sched
+
+						iodU.updateConnector(IOD, options, connectorCb)
+					}, connectorCb))
 				}
+				// Save
+				else {
+					var sched = prepareSched()
+					if (sched) options.schedule = sched
 
-				console.log('OPTIONS: ', options)
-
-				// No changes to connector found
-				if (_.size(_.pick(options, ['config', 'destination', 'schedule', 'description'])) === 0) {
-					return connectorCb()
+					iodU.updateConnector(IOD, options, connectorCb)
 				}
-
-				iodU.updateConnector(IOD, options, connectorCb)
 			}, connectorCb))
 		}
 
@@ -258,26 +241,11 @@ var connectorsT = T.map(function(connector) {
 	var duration = connector.config && connector.config.duration
 	var conEventList = []
 
-	/**
-	 * Add connector schedule event to list.
-	 * Save connector event in connector event cache.
-	 *
-	 * @param {Object} conEvent - Connector event
-	 * @param {Boolean} [shouldReturn] - Optional, set to true to return conEventList
-	 * @returns {Array} - conEventList
-	 */
-	var addToConEventList = function(conEvent, shouldReturn) {
-		var name = U.getActualName(conEvent.text)
-		if (!CEC[name]) CEC[name] = conEvent
-		conEventList.push(conEvent)
-		if (shouldReturn) return conEventList
-	}
-
 	// On site connector
-	if (!connector.config) return addToConEventList(new ConEvent(connector).value(), true)
+	if (!connector.config) return [ new ConEvent(connector).value() ]
 
 	// No schedule set start_date and end_date to now
-	if (!sched) return addToConEventList(new ConEvent(connector).value(), true)
+	if (!sched) return [ new ConEvent(connector).value() ]
 
 	var occurrences = sched.occurrences || -1
 	var start = moment.asDateTime(sched.start_date, freq.start_time)
@@ -290,6 +258,7 @@ var connectorsT = T.map(function(connector) {
 		for (var i=0; i < occurrences; i++) {
 			var conEvent = new ConEvent(connector)
 			conEvent.name = connector.name + ' - occurrence: ' + (i+1)
+			conEvent.id = conEvent.name
 
 			var prevStart = prev.start_date ? moment(prev.start_date) : null
 			var prevEnd = prev.end_date ? moment(prev.end_date) : null
@@ -316,7 +285,7 @@ var connectorsT = T.map(function(connector) {
 			}
 
 			prev = conEvent.clone()
-			addToConEventList(conEvent.value())
+			conEventList.push(conEvent.value())
 		}
 	}
 	else {
@@ -326,7 +295,7 @@ var connectorsT = T.map(function(connector) {
 		conEvent.end_date = end ? end.toDate() : new Date(9999, 1, 1)
 
 		// No occurrences means either run forever or run until endDate
-		addToConEventList(conEvent.value())
+		conEventList.push(conEvent.value())
 	}
 
 	return conEventList
