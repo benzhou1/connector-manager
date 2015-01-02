@@ -577,7 +577,7 @@ div.icon_delete {
   margin-top: 2px;
 }
 .dhx_cal_light_wide .dhx_repeat_right {
-  margin-right: 55px;
+  margin-right: 25px;
 }
 .dhx_minical_popup {
   position: absolute;
@@ -1498,13 +1498,13 @@ div.icon_delete {
 .dhx_repeat_right {
   float: right;
   height: 115px;
-  width: 160px;
+  width: 180px;
   padding: 10px 3px 10px 10px;
   margin-top: 7px;
 }
 input.dhx_repeat_text {
   height: 16px;
-  width: 27px;
+  width: 57px;
   margin: 0 4px 0 4px;
   line-height: 18px;
   padding: 0 0 0 2px;
@@ -1517,7 +1517,7 @@ input.dhx_repeat_text {
 }
 input.dhx_repeat_date {
   height: 18px;
-  width: 80px;
+  width: 110px;
   padding: 0 0 0 2px;
   margin: 0 4px 0 4px;
   background-repeat: no-repeat;

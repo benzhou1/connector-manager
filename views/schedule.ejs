@@ -4,6 +4,7 @@
     <script src="/codebase/sources/dhtmlxscheduler.js" type="text/javascript" charset="utf-8"></script>
     <script src="/codebase/sources/ext/dhtmlxscheduler_recurring.js" type="text/javascript" charset="utf-8"></script>
     <script src="codebase/sources/ext/dhtmlxscheduler_tooltip.js"></script>
+    <script src="codebase/sources/ext/dhtmlxscheduler_minical.js"></script>
     <link rel="stylesheet" href="/codebase/sources/skins/dhtmlxscheduler.css" type="text/css" media="screen" title="no title" charset="utf-8">
     <style type="text/css" media="screen">
         html, body{
@@ -20,11 +21,57 @@
 %>
 
 <script type="text/javascript" charset="utf-8">
+    /**
+     * Check whether lightbox show is due to a creation or update on event.
+     * If update, hide connector name and flavor inputs.
+     *
+     * @param {Object} state - State of scheduler
+     * @param {Object} node - Node of lightbox section
+     * @param {*} value - Lightbox section value
+     * @param {Object} ev - Current scheduler event
+     * @param {String} prop - Property name to hide
+     * @param {Function} setFn - Set function
+     */
+    function hideOrSet(state, node, value, ev, prop, setFn) {
+        if (!state.new_event && ev[prop] === value) {
+            node.firstChild.value=value||"";
+            var style = ev.some_property?"":"none";
+            node.style.display=style; // editor area
+            node.previousSibling.style.display=style; //section header
+            scheduler.setLightboxSize(); //correct size of lightbox
+        }
+        else {
+            node.firstChild.value=value||"";
+            var style = ev.some_property?"":"block";
+            node.style.display=style; // editor area
+            node.previousSibling.style.display=style; //section header
+            scheduler.setLightboxSize(); //correct size of lightbox
+            setFn()
+        }
+    }
+
     function init() {
         // Set schedule config
         scheduler.config.show_loading = true;
-        scheduler.config.xml_date="%Y-%m-%d %H:%i";
+        scheduler.config.xml_date="%d/%m%/%Y %H:%i:%s";
         scheduler.config.collision_limit = 10;
+        scheduler.config.lightbox_recurring = "instance";
+        scheduler.config.event_duration = 5;
+        scheduler.config.auto_end_date = true;
+        scheduler.config.repeat_date = "%d/%m/%Y %H:%i:%s"
+        // Configure lightbox sections
+        scheduler.config.lightbox.sections = [
+            {name:"connector", height:26, map_to:"text", type:"textarea", focus:true},
+            {name:"flavor", height:25, map_to:"flavor", type:"select", options: [
+                {key:'web_cloud', label:'Web_Cloud'},
+                {key:'filesystem_onsite', label:'FileSystem_Onsite'}
+            ]},
+            {name:"config", height:130, map_to:"config", type:"textarea"},
+            {name:"destination", height:130, map_to:"destination", type:"textarea"},
+            {name:"description", height:70, map_to:"description", type:"textarea"},
+            {name:"recurring", type:"recurring", map_to:"rec_type", button:"recurring"},
+            {name:"time", height:72, type:"time", map_to:"auto"}
+        ];
 
         scheduler.init('scheduler_here',new Date(),"month");
         scheduler.load("<%- dataPath %>", "json");
@@ -43,6 +90,27 @@
 
             this.callEvent("onXLE", []);
         };
+        // Hide connector name option in lightbox on update
+        scheduler.form_blocks.textarea.set_value=function(node, value, ev){
+            var state = scheduler.getState()
+            hideOrSet(state, node, value, ev, 'text', function() {
+                node.firstChild.value=value||"";
+            })
+        }
+        // Hide connector flavor option in lightbox on update
+        scheduler.form_blocks.select.set_value=function(node, value, ev, sns){
+            var state = scheduler.getState()
+            hideOrSet(state, node, value, ev, 'flavor', function() {
+                var select = node.firstChild;
+                if (!select._dhx_onchange && sns.onchange) {
+                    select.onchange = sns.onchange;
+                    select._dhx_onchange = true;
+                }
+                if (typeof value == "undefined")
+                    value = (select.options[0]||{}).value;
+                select.value=value||"";
+            })
+        }
 
         scheduler.templates.xml_date = function(value){ return new Date(value); };
 

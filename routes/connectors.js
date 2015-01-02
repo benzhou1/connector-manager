@@ -18,7 +18,7 @@ var ErrCode = require('../lib/err').CODE
 var async = require('../lib/async-ext')
 var apply = async.apply
 
-// Cache to store event id with connector name
+// Cache to store connector name with connector attributes
 var CEC = {}
 
 exports.attachRoutes = function(app, deps, callback) {
@@ -79,21 +79,36 @@ exports.attachRoutes = function(app, deps, callback) {
 		 *
 		 * @returns {Object} Connector schedule object
 		 */
-		var prepareSched = function() {
-			if (!data.rec_type) return
+		var prepareSched = function(oldSched) {
+			var startMom = data.start_date ? moment(data.start_date, 'DD/MM/YYYY HH:mm:ss', true) : null
+			var endMom = data.rec_type ?
+				startMom ?
+					moment(startMom).add(parseInt(data.event_length), 's') : null
+				: null
+			var sched = {}
 
-			var sched = recU.toSched(data.rec_type)
-			var startDate = data.start_date ? moment(new Date(data.start_date)) : null
-			var endDate = startDate ? moment(startDate).add(parseInt(data.event_length), 's') : null
-
-			if (startDate) {
-				sched.start_date = startDate.format(moment.dateFormat)
-				sched.frequency.start_time = startDate.format(moment.timeFormat)
+			if (oldSched) {
+				sched = oldSched
+				if (!data.rec_type) {
+					var endDurMom = moment(data.end_date, 'DD/MM/YYYY HH:mm:ss', true)
+					sched.duration = moment.duration(endDurMom.diff(startMom), 'ms').asSeconds()
+				}
 			}
+			else sched = recU.toSched(data.rec_type)
+
+			if (startMom) {
+				sched.start_date = startMom.format(moment.dateFormat)
+				sched.frequency.start_time = startMom.format(moment.timeFormat)
+			}
+
 			// If end date was changed
-			if (endDate && data.event_length != '300') {
-				sched.end_date = endDate.format(moment.dateFormat)
-				sched.frequency.end_time = endDate.format(moment.timeFormat)
+			if (endMom && data.event_length && data.event_length != '300') {
+				sched.end_date = endMom.format(moment.dateFormat)
+				sched.frequency.end_time = endMom.format(moment.timeFormat)
+			}
+			else if (!data.event_length) {
+				delete sched.end_date
+				delete sched.frequency.end_time
 			}
 
 			return sched
@@ -175,18 +190,31 @@ exports.attachRoutes = function(app, deps, callback) {
 			validateParams(async.split(function(params) {
 				var name = U.getActualName(data.text)
 				var attrs = CEC[name]
-				var options = { connector: name }
-
 				if (!attrs) {
-					console.error('Connector attributes for: ' + name + ' was not found')
+					console.error('Connector attributes for id: ' + data.id + ' was not found')
 					return connectorCb('Unexpected error occurred!')
 				}
 
-				var sched = prepareSched()
-				if (!_.isEqual(sched, attrs.schedule)) options.schedule = sched
-				if (!_.isEqual(params.config, attrs.config)) options.config = params.config
-				if (!_.isEqual(params.destination, attrs.destination)) options.destination = params.destination
+				var options = { connector: name }
+				var sched = prepareSched(JSON.parse(attrs.schedule))
+				if (!_.isEqual(JSON.stringify(params.config, null, 2), attrs.config)) {
+					options.config = params.config
+				}
+				if (!_.isEqual(JSON.stringify(params.destination, null, 2), attrs.destination)) {
+					options.destination = params.destination
+				}
 				if (data.description !== attrs.description) options.description = data.description
+				if (!_.isEqual(JSON.stringify(sched, null, 2), attrs.schedule)) {
+					options.schedule = sched
+
+					if (options.schedule.duration) {
+						options.config = options.config || {}
+						options.config.duration = options.schedule.duration
+						delete options.schedule.duration
+					}
+				}
+
+				console.log('OPTIONS: ', options)
 
 				// No changes to connector found
 				if (_.size(_.pick(options, ['config', 'destination', 'schedule', 'description'])) === 0) {

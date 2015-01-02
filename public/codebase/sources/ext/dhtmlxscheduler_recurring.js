@@ -60,6 +60,7 @@ scheduler.form_blocks["recurring"] = {
 		}
 
 		function change_current_view() {
+			// [CHANGE] - Seconds display to none
 			$("dhx_repeat_seconds").style.display = "none";
 			$("dhx_repeat_day").style.display = "none";
 			$("dhx_repeat_week").style.display = "none";
@@ -93,12 +94,9 @@ scheduler.form_blocks["recurring"] = {
 
 		scheduler.form_blocks["recurring"]._get_repeat_code = get_repeat_code;
 		var get_rcode = {
+			// [CHANGE] - Added get_rcode for seconds
 			seconds:function(code, dates) {
-				var occurrences = els['occurrences'].value
-				if (occurrences == 0 || occurrences < 0) occurrences = -1
-
-				code.push(occurrences)
-				code.push(Math.max(30, els['interval'].value))
+				code.push(els['interval'].value)
 			},
 			month:function(code, dates) {
 				if (get_radio_value("month_type") == "d") {
@@ -177,9 +175,9 @@ scheduler.form_blocks["recurring"] = {
 			}
 		};
 		var set_rcode = {
+			// [CHANGE] - Added set_rcode for seconds
 			seconds:function(code, dates) {
-				els['occurrences'].value = code[0]
-				els['interval'].value = code[1]
+				els['interval'].value = code[0]
 			},
 			week:function(code, dates) {
 				els["week_count"].value = code[1];
@@ -259,6 +257,23 @@ scheduler.form_blocks["recurring"] = {
 					break;
 			}
 		}
+
+		els['date_of_end'].onclick = function() {
+			var select = document.getElementsByClassName('dhx_section_time')[0].childNodes[0]
+			var options = []
+			for(var i=0; i < select.length; i++) options.push(select[i])
+
+			scheduler.renderCalendar({
+				date: new Date(),
+				position: 'date_of_end_cal',
+				navigation: true,
+				handler: function(a) {
+					els["date_of_end"].value = date_str(a)
+				}
+			});
+		};
+		console.log('TOP: ', top)
+		console.log('ELS: ', els)
 		scheduler._lightbox._rec_init_done = true;
 	},
 	set_value:function(node, value, ev) {
@@ -304,14 +319,17 @@ scheduler.form_blocks["recurring"] = {
 	},
 	button_click:function(index, el, section, cont) {
 		if (!cont.open && !cont.blocked) {
+			// [CHANGE] - Increased height for lightbox
 			cont.style.height = "130px";
 			el.style.backgroundPosition = "-5px 0px";
 			el.nextSibling.innerHTML = scheduler.locale.labels.button_recurring_open;
+			// [CHANGE - Display time if recurring button is clicked
 			document.getElementsByClassName('dhx_section_time')[0].style.display = 'block'
 		} else {
 			cont.style.height = "0px";
 			el.style.backgroundPosition = "-5px 20px";
 			el.nextSibling.innerHTML = scheduler.locale.labels.button_recurring;
+			// [CHANGE - Hide time if recurring button is un-clicked
 			document.getElementsByClassName('dhx_section_time')[0].style.display = 'none'
 		}
 		cont.open = !cont.open;
@@ -638,7 +656,7 @@ scheduler.transpose_type = function(type) {
 				}
 			}
 
-			this.date[f] = function(nd, td) { 
+			this.date[f] = function(nd, td) {
 				var delta = Math.floor((td.valueOf() - nd.valueOf()) / (day * step));
 				if (delta > 0)
 					nd.setDate(nd.getDate() + delta * step);
@@ -672,6 +690,7 @@ scheduler.transpose_type = function(type) {
 				return nd;
 			};
 		}
+		// [CHANGE} - Else case for seconds
 		else if (str[0] == 'seconds') {
 			this.date[f] = function(nd, td) {}
 			this.date[gf] = function(sd, inc) {}
@@ -774,7 +793,7 @@ scheduler.getRecDates = function(id, max) {
 		} else {
 			result.push({ start_date: ch.start_date, end_date: ch.end_date });
 		}
-		
+
 		td = this.date.add(td, 1, ev.rec_pattern);
 		if (res) {
 			count++;
@@ -809,14 +828,7 @@ scheduler.getEvents = function(from, to) {
 
 scheduler.config.repeat_date = "%m.%d.%Y";
 scheduler.config.lightbox.sections = [
-	{name:"connector", height:26, map_to:"text", type:"textarea", focus:true},
-	{name:"flavor", height:25, map_to:"flavor", type:"select", options: [
-		{key:'web_cloud', label:'Web_Cloud'},
-		{key:'filesystem_onsite', label:'FileSystem_Onsite'}
-	]},
-	{name:"config", height:130, map_to:"config", type:"textarea"},
-	{name:"destination", height:130, map_to:"destination", type:"textarea"},
-	{name:"description", height:70, map_to:"description", type:"textarea"},
+	{name:"description", height:130, map_to:"text", type:"textarea" , focus:true},
 	{name:"recurring", type:"recurring", map_to:"rec_type", button:"recurring"},
 	{name:"time", height:72, type:"time", map_to:"auto"}
 ];
@@ -840,107 +852,128 @@ scheduler.attachEvent("onClearAll", function(){
 	scheduler._rec_temp = [];
 });
 
-scheduler.__recurring_template='<div class="dhx_form_repeat"> <form> <div class="dhx_repeat_left"> ' +
-	'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="seconds" checked />Seconds</label><br /> ' +
-	'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="day" />Daily</label><br /> ' +
-	'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="week" />Weekly</label><br /> ' +
-	'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="month" />Monthly</label><br /> ' +
-	'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="year" />Yearly</label> ' +
-'</div> <div class="dhx_repeat_divider"></div> <div class="dhx_repeat_center"> ' +
-	'<div id="dhx_repeat_seconds"> ' +
-		'Interval<input class="dhx_repeat_text" type="text" name="interval" value="21600" /><br />' +
-		'Occurrences<input class="dhx_repeat_text" type="number" name="occurrences" value=""/>' +
-	'</div>' +
-	'<div style="display:none;" id="dhx_repeat_day"> ' +
-		'<label>' +
-			'<input class="dhx_repeat_radio" type="radio" name="day_type" value="d"/>Every' +
-		'</label>' +
-		'<input class="dhx_repeat_text" type="text" name="day_count" value="1" />day<br /> ' +
-		'<label><input class="dhx_repeat_radio" type="radio" name="day_type" checked value="w"/>Every workday</label> ' +
+// [CHANGE] - Added seconds to recurring_template
+scheduler.__recurring_template='<div class="dhx_form_repeat"> ' +
+	'<form> ' +
+		'<div class="dhx_repeat_left"> ' +
+			'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="seconds" checked />Seconds</label><br /> ' +
+			'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="day" />Daily</label><br /> ' +
+			'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="week" />Weekly</label><br /> ' +
+			'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="month" />Monthly</label><br /> ' +
+			'<label><input class="dhx_repeat_radio" type="radio" name="repeat" value="year" />Yearly</label> ' +
+		'</div> ' +
+		'<div class="dhx_repeat_divider"></div> <div class="dhx_repeat_center"> ' +
+
+		'<div id="dhx_repeat_seconds"> ' +
+			'Interval<input class="dhx_repeat_text" type="text" name="interval" value="21600" /><br />' +
+		'</div>' +
+
+		'<div style="display:none;" id="dhx_repeat_day"> ' +
+			'<label>' +
+				'<input class="dhx_repeat_radio" type="radio" name="day_type" value="d"/>Every' +
+			'</label>' +
+			'<input class="dhx_repeat_text" type="text" name="day_count" value="1" />day<br /> ' +
+			'<label><input class="dhx_repeat_radio" type="radio" name="day_type" checked value="w"/>Every workday</label> ' +
+		'</div> ' +
+
+		'<div style="display:none;" id="dhx_repeat_week"> ' +
+			'Repeat every<input class="dhx_repeat_text" type="text" name="week_count" value="1" />week next days:<br /> ' +
+			'<table class="dhx_repeat_days"> ' +
+				'<tr> <td> ' +
+					'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="1" />Monday</label><br /> ' +
+					'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="4" />Thursday</label> ' +
+				'</td> <td> ' +
+					'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="2" />Tuesday</label><br /> ' +
+					'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="5" />Friday</label> ' +
+				'</td> <td> ' +
+					'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="3" />Wednesday</label><br /> ' +
+					'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="6" />Saturday</label> ' +
+				'</td> <td> ' +
+					'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="0" />Sunday</label><br /><br /> ' +
+				'</td> </tr> ' +
+			'</table> ' +
+		'</div> ' +
+
+		'<div style="display:none;" id="dhx_repeat_month"> ' +
+			'<label>' +
+				'<input class="dhx_repeat_radio" type="radio" name="month_type" value="d"/>Repeat' +
+			'</label>' +
+			'<input class="dhx_repeat_text" type="text" name="month_day" value="1" />day every' +
+			'<input class="dhx_repeat_text" type="text" name="month_count" value="1" />month<br /> ' +
+			'<label>' +
+				'<input class="dhx_repeat_radio" type="radio" name="month_type" checked value="w"/>On' +
+			'</label>' +
+			'<input class="dhx_repeat_text" type="text" name="month_week2" value="1" />' +
+			'<select name="month_day2">' +
+				'<option value="1" selected >Monday' +
+				'<option value="2">Tuesday' +
+				'<option value="3">Wednesday' +
+				'<option value="4">Thursday' +
+				'<option value="5">Friday' +
+				'<option value="6">Saturday' +
+				'<option value="0">Sunday' +
+			'</select>every' +
+			'<input class="dhx_repeat_text" type="text" name="month_count2" value="1" />month<br /> ' +
+		'</div> ' +
+
+		'<div style="display:none;" id="dhx_repeat_year"> ' +
+			'<label>' +
+				'<input class="dhx_repeat_radio" type="radio" name="year_type" value="d"/>Every' +
+			'</label>' +
+			'<input class="dhx_repeat_text" type="text" name="year_day" value="1" />day' +
+			'<select name="year_month">' +
+				'<option value="0" selected >January' +
+				'<option value="1">February' +
+				'<option value="2">March' +
+				'<option value="3">April' +
+				'<option value="4">May' +
+				'<option value="5">June' +
+				'<option value="6">July' +
+				'<option value="7">August' +
+				'<option value="8">September' +
+				'<option value="9">October' +
+				'<option value="10">November' +
+				'<option value="11">December' +
+			'</select>month<br /> ' +
+			'<label>' +
+				'<input class="dhx_repeat_radio" type="radio" name="year_type" checked value="w"/>On' +
+			'</label>' +
+			'<input class="dhx_repeat_text" type="text" name="year_week2" value="1" />' +
+			'<select name="year_day2">' +
+				'<option value="1" selected >Monday' +
+				'<option value="2">Tuesday' +
+				'<option value="3">Wednesday' +
+				'<option value="4">Thursday' +
+				'<option value="5">Friday' +
+				'<option value="6">Saturday' +
+				'<option value="7">Sunday' +
+			'</select>of' +
+				'<select name="year_month2">' +
+				'<option value="0" selected >January' +
+				'<option value="1">February' +
+				'<option value="2">March' +
+				'<option value="3">April' +
+				'<option value="4">May' +
+				'<option value="5">June' +
+				'<option value="6">July' +
+				'<option value="7">August' +
+				'<option value="8">September' +
+				'<option value="9">October' +
+				'<option value="10">November' +
+				'<option value="11">December' +
+			'</select><br /> ' +
+		'</div> ' +
 	'</div> ' +
-	'<div style="display:none;" id="dhx_repeat_week"> ' +
-		'Repeat every<input class="dhx_repeat_text" type="text" name="week_count" value="1" />week next days:<br /> ' +
-		'<table class="dhx_repeat_days"> ' +
-			'<tr> <td> ' +
-				'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="1" />Monday</label><br /> ' +
-				'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="4" />Thursday</label> ' +
-			'</td> <td> ' +
-				'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="2" />Tuesday</label><br /> ' +
-				'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="5" />Friday</label> ' +
-			'</td> <td> ' +
-				'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="3" />Wednesday</label><br /> ' +
-				'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="6" />Saturday</label> ' +
-			'</td> <td> ' +
-				'<label><input class="dhx_repeat_checkbox" type="checkbox" name="week_day" value="0" />Sunday</label><br /><br /> ' +
-			'</td> </tr> ' +
-		'</table> ' +
+
+	'<div class="dhx_repeat_divider"></div> ' +
+
+	'<div class="dhx_repeat_right"> ' +
+		'<label><input class="dhx_repeat_radio" type="radio" name="end" checked/>No end date</label><br /> ' +
+		'<label><input class="dhx_repeat_radio" type="radio" name="end" />End by</label>' +
+		'<input class="dhx_repeat_date" type="text" name="date_of_end" value="'+scheduler.config.repeat_date_of_end+'" /><br /> ' +
+		'<input id="date_of_end_cal" type="button" name="date_of_end_cal" value="Cal"/>' +
+
+		'<input type="hidden" name="end" value="occurences_count" />' +
 	'</div> ' +
-	'<div style="display:none;" id="dhx_repeat_month"> ' +
-		'<label>' +
-			'<input class="dhx_repeat_radio" type="radio" name="month_type" value="d"/>Repeat' +
-		'</label>' +
-		'<input class="dhx_repeat_text" type="text" name="month_day" value="1" />day every' +
-		'<input class="dhx_repeat_text" type="text" name="month_count" value="1" />month<br /> ' +
-		'<label>' +
-			'<input class="dhx_repeat_radio" type="radio" name="month_type" checked value="w"/>On' +
-		'</label>' +
-		'<input class="dhx_repeat_text" type="text" name="month_week2" value="1" />' +
-		'<select name="month_day2">' +
-			'<option value="1" selected >Monday' +
-			'<option value="2">Tuesday' +
-			'<option value="3">Wednesday' +
-			'<option value="4">Thursday' +
-			'<option value="5">Friday' +
-			'<option value="6">Saturday' +
-			'<option value="0">Sunday' +
-		'</select>every' +
-		'<input class="dhx_repeat_text" type="text" name="month_count2" value="1" />month<br /> ' +
-	'</div> ' +
-	'<div style="display:none;" id="dhx_repeat_year"> ' +
-		'<label>' +
-			'<input class="dhx_repeat_radio" type="radio" name="year_type" value="d"/>Every' +
-		'</label>' +
-		'<input class="dhx_repeat_text" type="text" name="year_day" value="1" />day' +
-		'<select name="year_month">' +
-			'<option value="0" selected >January' +
-			'<option value="1">February' +
-			'<option value="2">March' +
-			'<option value="3">April' +
-			'<option value="4">May' +
-			'<option value="5">June' +
-			'<option value="6">July' +
-			'<option value="7">August' +
-			'<option value="8">September' +
-			'<option value="9">October' +
-			'<option value="10">November' +
-			'<option value="11">December' +
-		'</select>month<br /> ' +
-		'<label>' +
-			'<input class="dhx_repeat_radio" type="radio" name="year_type" checked value="w"/>On' +
-		'</label>' +
-		'<input class="dhx_repeat_text" type="text" name="year_week2" value="1" />' +
-		'<select name="year_day2">' +
-			'<option value="1" selected >Monday' +
-			'<option value="2">Tuesday' +
-			'<option value="3">Wednesday' +
-			'<option value="4">Thursday' +
-			'<option value="5">Friday' +
-			'<option value="6">Saturday' +
-			'<option value="7">Sunday' +
-		'</select>of' +
-			'<select name="year_month2">' +
-			'<option value="0" selected >January' +
-			'<option value="1">February' +
-			'<option value="2">March' +
-			'<option value="3">April' +
-			'<option value="4">May' +
-			'<option value="5">June' +
-			'<option value="6">July' +
-			'<option value="7">August' +
-			'<option value="8">September' +
-			'<option value="9">October' +
-			'<option value="10">November' +
-			'<option value="11">December' +
-		'</select><br /> ' +
-	'</div> ' +
-'</div> <div class="dhx_repeat_divider"></div> <div class="dhx_repeat_right"> <label><input class="dhx_repeat_radio" type="radio" name="end" checked/>No end date</label><br /> <label><input class="dhx_repeat_radio" type="radio" name="end" />After</label><input class="dhx_repeat_text" type="text" name="occurences_count" value="1" />occurrences<br /> <label><input class="dhx_repeat_radio" type="radio" name="end" />End by</label><input class="dhx_repeat_date" type="text" name="date_of_end" value="'+scheduler.config.repeat_date_of_end+'" /><br /> </div> </form> </div> <div style="clear:both"> </div>';
+
+'</form> </div> <div style="clear:both"> </div>';

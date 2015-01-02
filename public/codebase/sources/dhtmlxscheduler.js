@@ -3486,7 +3486,7 @@ scheduler.locale = {
 		confirm_closing:"",//Your changes will be lost, are your sure ?
 		confirm_deleting:"Event will be deleted permanently, are you sure?",
 		section_description:"Description",
-		section_time:"Time period",
+		section_time:"Start Date",
 		section_connector:"Connector Name",
 		section_flavor:"Connector Flavor",
 		section_config: "Connector Config",
@@ -5184,6 +5184,7 @@ scheduler.form_blocks={
 				dt.setHours(cfg.first_hour);
 			}
 			var html = "";
+			var htmlHidden = "";
 
 			for (var p = 0; p < time_format.length; p++) {
 				var time_option = time_format[p];
@@ -5191,6 +5192,7 @@ scheduler.form_blocks={
 				// adding spaces between selects
 				if (p > 0) {
 					html += " ";
+					htmlHidden += " ";
 				}
 
 				switch (time_option) {
@@ -5198,31 +5200,44 @@ scheduler.form_blocks={
 						sns._time_format_order[3] = p;
 						//year
 						html+="<select>";
+						htmlHidden+="<select style=\"display:none;\">";
 						var year = dt.getFullYear()-5; //maybe take from config?
-						for (var i=0; i < 10; i++)
+						for (var i=0; i < 10; i++) {
 							html+="<option value='"+(year+i)+"'>"+(year+i)+"</option>";
+							htmlHidden+="<option value='"+(year+i)+"'>"+(year+i)+"</option>";
+						}
 						html+="</select> ";
+						htmlHidden+="</select> ";
 						break;
 					case "%m":
 						sns._time_format_order[2] = p;
 						//month
 						html+="<select>";
-						for (var i=0; i < 12; i++)
+						htmlHidden+="<select style=\"display:none;\">";
+						for (var i=0; i < 12; i++) {
 							html+="<option value='"+i+"'>"+this.locale.date.month_full[i]+"</option>";
+							htmlHidden+="<option value='"+i+"'>"+this.locale.date.month_full[i]+"</option>";
+						}
 						html += "</select>";
+						htmlHidden+="</select>";
 						break;
 					case "%d":
 						sns._time_format_order[1] = p;
 						//days
 						html+="<select>";
-						for (var i=1; i < 32; i++)
+						htmlHidden+="<select style=\"display:none;\">";
+						for (var i=1; i < 32; i++) {
 							html+="<option value='"+i+"'>"+i+"</option>";
+							htmlHidden+="<option value='"+i+"'>"+i+"</option>";
+						}
 						html += "</select>";
+						htmlHidden += "</select>";
 						break;
 					case "%H:%i":
 						sns._time_format_order[0] = p;
 						//hours
 						html += "<select>";
+						htmlHidden += "<select style=\"display:none;\">";
 						var i = first;
 						var tdate = dt.getDate();
 						sns._time_values = [];
@@ -5230,17 +5245,19 @@ scheduler.form_blocks={
 						while(i<last){
 							var time=this.templates.time_picker(dt);
 							html+="<option value='"+i+"'>"+time+"</option>";
+							htmlHidden+="<option value='"+i+"'>"+time+"</option>";
 							sns._time_values.push(i);
 							dt.setTime(dt.valueOf()+this.config.time_step*60*1000);
 							var diff = (dt.getDate()!=tdate)?1:0; // moved or not to the next day
 							i=diff*24*60+dt.getHours()*60+dt.getMinutes();
 						}
 						html += "</select>";
+						htmlHidden += "</select>";
 						break;
 				}
 			}
 
-			return "<div style='height:30px;padding-top:0px;font-size:inherit;display:none;' class='dhx_section_time'>"+html+"<span style='font-weight:normal; font-size:10pt;'> &nbsp;&ndash;&nbsp; </span>"+html+"</div>";
+			return "<div style='height:30px;padding-top:0px;font-size:inherit;display:none;' class='dhx_section_time'>"+html+htmlHidden+"</div>";
 		},
 		set_value:function(node,value,ev,config){
 			var cfg = scheduler.config;
