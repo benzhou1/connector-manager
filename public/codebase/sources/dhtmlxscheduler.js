@@ -5123,11 +5123,11 @@ function initRecForm(ev) {
 	catch (e) { return }
 
 	var inputs = document.getElementsByClassName('dhx_form_repeat')[0].children[0]
-		.getElementsByTagName('input')
+		.getElementsByTagName('input');
 
-	var firstRadio = true
+	var firstRadio = true;
 	for (var i=0; i < inputs.length; i++) {
-		var name = inputs[i].name
+		var name = inputs[i].name;
 
 		if (name === 'interval') inputs[i].value = sched.frequency.interval
 		if (name === 'occurrences') inputs[i].value = sched.occurrences || ''
@@ -5136,24 +5136,23 @@ function initRecForm(ev) {
 				'MM-DD-YYYY', 'YYYY-MM-DD',
 				'MM-DD-YYYY Z', 'YYYY-MM-DD Z',
 				'MM-DD-YYYY ZZ', 'YYYY-MM-DD ZZ'
-			], true) : null
+			], true) : null;
 			var endTimeMom = sched.frequency.end_time ? moment(sched.frequency.end_time, [
-				'HH:mm:ss Z', 'HH:mm:ss ZZ', 'HH:mm:ss'], true) : null
-			var endMom = endDateMom || endTimeMom
+				'HH:mm:ss Z', 'HH:mm:ss ZZ', 'HH:mm:ss'], true) : null;
+			var endMom = endDateMom || endTimeMom;
 
 			if (endDateMom && endTimeMom) {
 				endMom = moment(endDateMom.format('DD/MM/YYYY') + ' ' +
-					endTimeMom.format('HH:mm:ss Z'), 'DD/MM/YYYY HH:mm:ss Z', true)
+					endTimeMom.format('HH:mm:ss Z'), 'DD/MM/YYYY HH:mm:ss Z', true);
 			}
-			inputs[i].value = date_str(endMom.toDate())
+			inputs[i].value = date_str(endMom.toDate());
 		}
 		if (name === 'end') {
 			if ((sched.end_date || sched.frequency.end_time)) {
-				inputs[i].checked = firstRadio ? false : true
+				inputs[i].checked = !firstRadio;
 			}
-			else if (firstRadio) inputs[i].checked = true
-			firstRadio = false
-
+			else if (firstRadio) inputs[i].checked = true;
+			firstRadio = false;
 		}
 	}
 }
